@@ -195,7 +195,6 @@
             storageBucket: "nafisa-akter.firebasestorage.app",
             messagingSenderId: "899637197388",
             appId: "1:899637197388:web:434a9805735ff78d7b12e9"
-
             
         };
 
@@ -537,6 +536,9 @@
 
         // --- CORE LOGIC: VIDEO SELECTION ---
         async function selectVideo(vid, isUserAction = true) {
+            // BUG FIX: Check if it's the initial load BEFORE assigning currentVideo
+            const isInitialLoad = (currentVideo === null); 
+            
             if (currentVideo && currentVideo.id === vid.id && isUserAction) return; 
             
             ui.skeleton.classList.add('hidden');
@@ -560,11 +562,16 @@
             
             await checkUserReaction(vid.id);
 
-            if (isUserAction) {
+            // The view count should be incremented if it's a user click (isUserAction=true) 
+            // OR if it's the very first video loaded on the page (isInitialLoad=true).
+            if (isUserAction || isInitialLoad) {
                 await incrementViewCount(vid.id);
-                showToast(`ভিডিও শুরু হয়েছে: ${vid.title}`);
-                // Scroll to the featured section (the video player) when a new video is selected
-                ui.featuredSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Only show toast and scroll if it was triggered by an actual user interaction
+                if (isUserAction) { 
+                    showToast(`ভিডিও শুরু হয়েছে: ${vid.title}`);
+                    // Scroll to the featured section (the video player) when a new video is selected
+                    ui.featuredSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             }
         }
 
@@ -680,5 +687,4 @@
     </script>
 </body>
 </html>
-
 
