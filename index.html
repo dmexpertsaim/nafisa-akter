@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>StreamHub Mobile</title>
+    <title>StreamHub Nafisa</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -113,7 +113,7 @@
                         <!-- Transparent overlay to capture long-press and right-click events -->
                         <div id="iframe-overlay"></div>
                         <!-- Player is loaded here -->
-                        <iframe id="main-player" src="" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen sandbox="allow-forms allow-scripts allow-same-origin allow-presentation"></iframe>
+                        <iframe id="main-player" src="" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
                     </div>
                 </div>
             </div>
@@ -142,7 +142,7 @@
                         <div class="flex items-center space-x-5 text-sm font-medium text-gray-500">
                             <!-- Duration badge is styled more prominently -->
                             <span id="vid-duration" class="bg-indigo-50 text-indigo-700 px-3.5 py-1.5 rounded-lg text-xs font-bold font-mono shadow-sm transition-colors ring-1 ring-indigo-100">--:--</span>
-                            <span class="flex items-center"><i class="far fa-eye mr-2 text-sm text-gray-400"></i> <span id="vid-views" class="text-gray-600 font-semibold">0</span> &nbsp; views</span>
+                            <span class="flex items-center"><i class="far fa-eye mr-2 text-sm text-gray-400"></i> <span id="vid-views" class="text-gray-600 font-semibold">0</span>&nbsp;views</span>
                         </div>
                         
                         <!-- Reaction Button - Styled for better tap feedback -->
@@ -211,6 +211,7 @@
         let currentVideo = null;
         let activeThumbnailElement = null;
         let allVideos = []; 
+        let placeholderUrl = 'https://placehold.co/1280x720/e0e0e0/333333?text=No+Image'; // Default
         
         // --- HELPER: UUID Generator ---
         function generateUUID() {
@@ -298,17 +299,94 @@
             }
         }
 
+        // --- HELPER: Create Sandboxed iFrame ---
+        function createSandboxedIframe(videoUrl, useSandbox) {
+            // সম্পূর্ণ নতুন iFrame তৈরি করুন
+            const iframe = document.createElement('iframe');
+            iframe.id = 'main-player';
+            
+            // আগের iFrame সম্পূর্ণ remove করুন
+            const existingIframe = ui.wrapper.querySelector('iframe');
+            if (existingIframe) {
+                existingIframe.remove();
+            }
+            
+            iframe.src = videoUrl;
+            iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+            iframe.setAttribute('allowfullscreen', 'true');
+            iframe.setAttribute('frameborder', '0');
+            iframe.style.position = 'absolute';
+            iframe.style.top = '0';
+            iframe.style.left = '0';
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = '0';
+            
+            if (useSandbox === true) {
+                // ✅ নিরাপদ স্যান্ডবক্স সেটিংস - শুধুমাত্র ভিডিও প্লেব্যাকের জন্য প্রয়োজনীয়
+                iframe.setAttribute('sandbox', 
+                    'allow-scripts ' +           // JavaScript চালানোর অনুমতি
+                    'allow-same-origin ' +       // Same-origin requests
+                    'allow-presentation ' +      // Fullscreen/Presentation
+                    'allow-popups-to-escape-sandbox' // শুধুমাত্র sandbox থেকে বের হওয়ার জন্য popup
+                );
+                
+                // ✅ sandbox attribute থাকলে referrerpolicy সেট করুন
+                iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+                
+                console.log('🔒 স্যান্ডবক্স সক্রিয়: ভিডিও নিরাপদ মোডে চলছে', {
+                    url: videoUrl,
+                    sandbox: iframe.getAttribute('sandbox')
+                });
+            } else {
+                // ❌ স্যান্ডবক্স নিষ্ক্রিয় হলে sandbox attribute সম্পূর্ণ remove করুন
+                iframe.removeAttribute('sandbox');
+                iframe.removeAttribute('referrerpolicy');
+                
+                console.log('⚠️ স্যান্ডবক্স নিষ্ক্রিয়: ভিডিও পূর্ণ অ্যাক্সেস মোডে', {
+                    url: videoUrl,
+                    sandbox: 'disabled'
+                });
+            }
+            
+            // নতুন iFrame যোগ করুন
+            ui.wrapper.appendChild(iframe);
+            
+            // iFrame লোড হওয়ার পর sandbox status verify করুন
+            iframe.onload = () => {
+                console.log('📺 iFrame লোড সম্পূর্ণ', {
+                    hasSandbox: iframe.hasAttribute('sandbox'),
+                    sandboxValue: iframe.getAttribute('sandbox'),
+                    useSandbox: useSandbox
+                });
+                
+                // verify sandbox status
+                if (useSandbox === true && !iframe.hasAttribute('sandbox')) {
+                    console.error('❌ স্যান্ডবক্স attribute সেট করা হয়নি!');
+                    // force sandbox attribute
+                    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-popups-to-escape-sandbox');
+                }
+                
+                if (useSandbox === false && iframe.hasAttribute('sandbox')) {
+                    console.error('❌ স্যান্ডবক্স attribute remove করা হয়নি!');
+                    // force remove sandbox attribute
+                    iframe.removeAttribute('sandbox');
+                }
+            };
+            
+            return iframe;
+        }
+
         // --- INIT ---
         async function init() {
             setupLongPressBlocker(); 
-            window.addEventListener('scroll', handleHeaderShadow); // Added scroll listener for header shadow
+            window.addEventListener('scroll', handleHeaderShadow);
 
             await loadAppConfig();
 
             // Show skeleton while loading
             ui.skeleton.classList.remove('hidden');
             ui.content.classList.add('hidden');
-            ui.player.src = ""; // Clear player initially
 
             // Update guest status
             await setDoc(doc(db, 'guests', guestId), {
@@ -323,16 +401,13 @@
             // Set up event listeners
             ui.searchInput.addEventListener('keyup', debounce(handleSearchInput));
             ui.searchInput.addEventListener('change', handleSearchInput); 
-            window.addEventListener('scroll', handleScroll); // Scroll listener for infinite scroll
+            window.addEventListener('scroll', handleScroll);
 
             if (allVideos.length > 0) {
-                 // Select the newest video to display initially (it's the first one loaded)
-                selectVideo(allVideos[0], false); 
-                 // Hide skeleton and show content
-                ui.skeleton.classList.add('hidden');
-                ui.content.classList.remove('hidden');
+                 selectVideo(allVideos[0], false); 
+                 ui.skeleton.classList.add('hidden');
+                 ui.content.classList.remove('hidden');
             } else {
-                 // If no videos, just hide skeleton and show empty state
                  ui.skeleton.classList.add('hidden');
                  ui.content.classList.remove('hidden');
                  ui.title.innerText = "এই মুহূর্তে কোনো ভিডিও নেই।";
@@ -349,6 +424,9 @@
                     const appName = d.app_name || 'StreamHub';
                     const logoUrl = d.logo_url || '';
                     const showLogo = d.show_logo === true;
+                    
+                    // NEW: Load placeholder URL from settings
+                    placeholderUrl = d.placeholder_url || 'https://placehold.co/1280x720/e0e0e0/333333?text=No+Image';
 
                     ui.appNameText.innerText = appName;
 
@@ -366,6 +444,7 @@
                 ui.appNameText.innerText = 'StreamHub';
                 ui.appNameText.classList.remove('hidden');
                 ui.appLogoImage.classList.add('hidden');
+                placeholderUrl = 'https://placehold.co/1280x720/e0e0e0/333333?text=No+Image';
             }
         }
 
@@ -374,7 +453,7 @@
         async function loadVideos(append = true) {
             // If no more videos or currently loading, exit
             if (!hasMore && append) return; 
-            if (isLoading || currentSearchQuery.length > 0) return; // Disable infinite scroll during search
+            if (isLoading || currentSearchQuery.length > 0) return;
             
             isLoading = true;
             ui.loadingIndicator.classList.remove('hidden');
@@ -387,7 +466,6 @@
                     limit(PAGE_SIZE)
                 ];
 
-                // Start loading after the last visible document
                 if (lastVisible) {
                     queryConstraints.push(startAfter(lastVisible));
                 }
@@ -405,18 +483,17 @@
                     hasMore = false;
                     ui.endOfList.classList.remove('hidden');
                     if (!append) {
-                        // If nothing is loaded on the first try
                         ui.noResults.classList.remove('hidden');
                     }
                 } else {
-                    lastVisible = snapshot.docs[snapshot.docs.length - 1]; // Save the last document
+                    lastVisible = snapshot.docs[snapshot.docs.length - 1];
                     
                     if (append) {
                         allVideos = [...allVideos, ...newVideos];
-                        renderPlaylist(newVideos, true); // Append new videos
+                        renderPlaylist(newVideos, true);
                     } else {
                         allVideos = newVideos;
-                        renderPlaylist(newVideos, false); // Replace playlist (first load/search clear)
+                        renderPlaylist(newVideos, false);
                     }
                 }
 
@@ -431,18 +508,16 @@
 
         // --- SCROLL HANDLER FOR INFINITE SCROLL ---
         function handleScroll() {
-            // If loading, no more videos, or searching, do nothing
             if (isLoading || !hasMore || currentSearchQuery.length > 0) {
                 return; 
             }
 
-            // Check if user reached the bottom (e.g., last 100 pixels)
             const scrollHeight = document.documentElement.scrollHeight;
             const scrollTop = document.documentElement.scrollTop;
             const clientHeight = document.documentElement.clientHeight;
 
             if (scrollTop + clientHeight >= scrollHeight - 100) {
-                loadVideos(true); // Load next page
+                loadVideos(true);
             }
         }
 
@@ -454,19 +529,16 @@
                 currentSearchQuery = queryText;
                 ui.playlistTitle.innerText = `খোঁজার ফলাফল: "${queryText}"`.toUpperCase();
                 
-                // Client-side filtering on all loaded videos.
                 const filteredVideos = filterVideos(queryText); 
                 renderPlaylist(filteredVideos, false); 
 
-                // Hide infinite scroll indicators during search
                 ui.loadingIndicator.classList.add('hidden');
                 ui.endOfList.classList.add('hidden');
             } else {
                 currentSearchQuery = '';
                 ui.playlistTitle.innerText = 'Up Next';
-                renderPlaylist(allVideos, false); // Show the full loaded list
+                renderPlaylist(allVideos, false);
 
-                // Show end-of-list status if it was reached before
                 if (!hasMore) {
                     ui.endOfList.classList.remove('hidden');
                 }
@@ -490,7 +562,7 @@
         // --- RENDER PLAYLIST ---
         function renderPlaylist(videos, append = false) {
             if (!append) {
-                ui.playlist.innerHTML = ''; // Clear list if not appending
+                ui.playlist.innerHTML = '';
                 ui.noResults.classList.add('hidden');
             }
 
@@ -502,7 +574,6 @@
             videos.forEach(vid => {
                 const el = createThumbnail(vid); 
                 vid.element = el;
-                // Highlight the currently playing video in the playlist
                 if (currentVideo && currentVideo.id === vid.id) {
                      el.classList.add('thumbnail-active');
                      activeThumbnailElement = el;
@@ -513,18 +584,31 @@
         // --- THUMBNAIL CREATOR ---
         function createThumbnail(vid) {
             const el = document.createElement('div');
-            // Enhanced thumbnail design for better visual appeal
             el.className = "bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition-all transform hover:scale-[1.02] border-2 border-transparent active:scale-[0.98]";
+            
+            const thumbUrl = vid.thumbnail_url || placeholderUrl;
+            
             el.innerHTML = `
                 <div class="relative pb-[56.25%] bg-gray-200">
-                    <img src="${vid.thumbnail_url}" class="absolute h-full w-full object-cover" loading="lazy" alt="thumb" onerror="this.onerror=null;this.src='https://placehold.co/1280x720/e0e0e0/333333?text=No+Image';">
+                    <img src="${thumbUrl}" class="absolute h-full w-full object-cover" loading="lazy" alt="thumb" 
+                         onerror="this.onerror=null;this.src='${placeholderUrl}';">
                     <!-- Duration badge with dark background -->
                     <div class="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] px-2 py-0.5 rounded-md font-mono shadow-lg">${vid.duration}</div>
+                    <!-- Sandbox Indicator (NEW) -->
+                    ${vid.use_sandbox === true ? 
+                        '<div class="absolute top-1 right-1 bg-purple-600/90 text-white text-[8px] px-1.5 py-0.5 rounded-md font-bold shadow-lg"><i class="fas fa-shield-alt"></i></div>' : 
+                        ''}
+                    <!-- Aspect Ratio Indicator (NEW) -->
+                    <div class="absolute top-1 left-1 bg-indigo-600/90 text-white text-[8px] px-1.5 py-0.5 rounded-md font-mono shadow-lg">${vid.ratio || '16:9'}</div>
                 </div>
                 <div class="p-3">
                     <h4 class="text-sm font-semibold leading-snug line-clamp-2 text-gray-800">${vid.title}</h4>
                     <div class="flex justify-between mt-2 text-xs text-gray-400">
                         <span><i class="far fa-eye mr-1"></i> ${vid.total_views || 0}</span>
+                        <!-- Sandbox Status Text (NEW) -->
+                        <span class="text-purple-600 font-semibold">
+                            ${vid.use_sandbox === true ? '<i class="fas fa-lock mr-0.5"></i> Secured' : '<i class="fas fa-unlock mr-0.5"></i> Unsecured'}
+                        </span>
                     </div>
                 </div>
             `;
@@ -536,7 +620,6 @@
 
         // --- CORE LOGIC: VIDEO SELECTION ---
         async function selectVideo(vid, isUserAction = true) {
-            // BUG FIX: Check if it's the initial load BEFORE assigning currentVideo
             const isInitialLoad = (currentVideo === null); 
             
             if (currentVideo && currentVideo.id === vid.id && isUserAction) return; 
@@ -558,18 +641,15 @@
             updateVideoDetails(vid);
             setDynamicRatio(vid.ratio);
 
-            ui.player.src = vid.video_url;
+            // সম্পূর্ণ নতুন iFrame তৈরি করুন sandbox status অনুযায়ী
+            createSandboxedIframe(vid.video_url, vid.use_sandbox);
             
             await checkUserReaction(vid.id);
 
-            // The view count should be incremented if it's a user click (isUserAction=true) 
-            // OR if it's the very first video loaded on the page (isInitialLoad=true).
             if (isUserAction || isInitialLoad) {
                 await incrementViewCount(vid.id);
-                // Only show toast and scroll if it was triggered by an actual user interaction
                 if (isUserAction) { 
                     showToast(`ভিডিও শুরু হয়েছে: ${vid.title}`);
-                    // Scroll to the featured section (the video player) when a new video is selected
                     ui.featuredSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }
@@ -579,9 +659,23 @@
             ui.title.innerText = vid.title;
             ui.desc.innerText = vid.description || 'কোনো বর্ণনা নেই।';
             ui.duration.innerText = vid.duration;
-            // Ensure views and likes are strings before setting innerText
             ui.views.innerText = (vid.total_views || 0).toString(); 
             ui.likes.innerText = (vid.total_reactions || 0).toString();
+            
+            // Add aspect ratio info to description (NEW)
+            if (vid.ratio && vid.ratio !== '16:9') {
+                ui.desc.innerText += `\n\nঅ্যাস্পেক্ট রেশিও: ${vid.ratio}`;
+            }
+            
+            // Add sandbox security info (NEW)
+            if (vid.use_sandbox === true) {
+                ui.desc.innerText += `\n\n🔒 স্যান্ডবক্স নিরাপত্তা: সক্রিয়`;
+                ui.desc.innerText += `\n✅ অনুমতি: JavaScript, Same-origin, Fullscreen`;
+                ui.desc.innerText += `\n❌ ব্লক করা: Top-navigation, Popups, Forms, Downloads`;
+            } else {
+                ui.desc.innerText += `\n\n⚠️ স্যান্ডবক্স নিরাপত্তা: নিষ্ক্রিয়`;
+                ui.desc.innerText += `\n📢 সমস্ত অনুমতি: পূর্ণ অ্যাক্সেস মোড`;
+            }
             
             ui.heart.className = "far fa-heart text-xl transition-colors";
             ui.reactionBtn.classList.remove("text-red-500");
@@ -631,7 +725,6 @@
             try {
                 const vRef = doc(db, 'videos', vidId);
                 await updateDoc(vRef, { total_views: increment(1) });
-                // Update UI immediately (after converting to number and back to string)
                 ui.views.innerText = (parseInt(ui.views.innerText, 10) + 1).toString();
             } catch (err) { 
                 console.error("Firestore Write Error (View Increment):", err); 
@@ -687,5 +780,3 @@
     </script>
 </body>
 </html>
-
-
