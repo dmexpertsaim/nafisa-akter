@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom Font and General Styles */
+        body { font-family: 'Inter', sans-serif; }
+        .modal { transition: opacity 0.3s ease, transform 0.3s ease; pointer-events: none; opacity: 0; transform: translateY(-10px); }
+        .modal.active { pointer-events: auto; opacity: 1; transform: translateY(0); }
+        .modal-content-scrollable { max-height: 90vh; overflow-y: auto; }
+
+        /* Input Consistency */
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .input-field { width: 100%; padding: 0.75rem 1rem; border: 1px solid #e5e7eb; border-radius: 0.75rem; font-size: 0.9rem; transition: all 0.3s; background-color: #ffffff; }
+        .input-field:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2); }
+        .label-text { display: block; font-size: 0.8rem; font-weight: 600; color: #4b5563; margin-bottom: 0.4rem; }
+        
+        /* Custom Toggle Switch (New UX for Sandbox Control) */
+        .switch { position: relative; display: inline-block; width: 48px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; 
+            background-color: #e5e7eb; transition: .4s; border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; 
+            background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input:checked + .slider { background-color: #6d28d9; /* Deep Purple */ }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        /* Responsive Table Adjustments */
+        @media (max-width: 640px) {
+            .video-title-col { max-width: 160px; }
+            .video-stats-col { text-align: left; }
+        }
+
+        /* Splash Screen Styles */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        .splash-content {
+            text-align: center;
+            color: white;
+            padding: 20px;
+        }
+        .splash-icon {
+            width: 120px;
+            height: 120px;
+            object-fit: contain;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+    
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <div class="splash-content">
+            <img id="splash-icon" src="" alt="App Icon" class="splash-icon">
+            <h2 class="text-3xl font-bold mb-4" id="splash-app-name">Loading...</h2>
+            <div class="loading-spinner"></div>
+            <p class="text-white/80 mt-4">লোড হচ্ছে...</p>
+        </div>
+    </div>
+    
+    <!-- Notification Area (Custom Alert/Confirm Replacement) -->
+    <div id="notification-bar" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 p-4 rounded-xl text-center text-white font-bold transition-all duration-300 transform translate-y-[-100%] opacity-0 shadow-2xl min-w-[280px]"></div>
+
+    <!-- Auth Screen - Polished Look -->
+    <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 bg-indigo-50 hidden">
+        <div class="bg-white p-8 rounded-2xl shadow-3xl w-full max-w-sm border border-gray-100 transform hover:shadow-indigo-300 transition duration-300">
+            <div class="text-center mb-8">
+                <div class="inline-flex p-3 bg-indigo-100 rounded-full mb-3 shadow-md">
+                    <i class="fas fa-video text-4xl text-indigo-600"></i>
+                </div>
+                <h2 class="text-3xl font-extrabold text-gray-800"> Admin Panel Login</h2>
+                <p class="text-sm text-gray-500 mt-1">লগইন করুন আপনার কন্টেন্ট ম্যানেজ করতে।</p>
+            </div>
+            <form id="login-form" class="space-y-5">
+                <input type="email" id="email" placeholder="Email" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" required>
+                <input type="password" id="password" placeholder="Password" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" required>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-500/50 transform hover:scale-[1.01]">সাইন ইন</button>
+            </form>
+            <p id="auth-error" class="text-red-500 text-sm mt-4 text-center hidden font-medium"></p>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden min-h-screen flex flex-col">
+        
+        <!-- Navbar -->
+        <nav class="bg-indigo-700 text-white shadow-2xl sticky top-0 z-40">
+            <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+                
+                <!-- App Name or Logo - Dynamic Content -->
+                <div id="app-branding" class="h-6">
+                    <span id="app-name-text-nav" class="font-extrabold text-xl tracking-wide flex items-center"><i class="fas fa-cube mr-2"></i>Admin Dashboard</span>
+                    <img id="app-logo-image-nav" src="" alt="App Logo" class="h-full object-contain hidden" onerror="this.classList.add('hidden'); document.getElementById('app-name-text-nav').classList.remove('hidden');">
+                </div>
+
+                <!-- User Name and Logout Button -->
+                <div class="flex items-center space-x-4">
+                    <button onclick="logout()" class="text-sm bg-indigo-800 hover:bg-indigo-900 px-4 py-2 rounded-full transition border border-indigo-600 shadow-md">লগআউট</button>
+                </div>
+            </div>
+            <!-- Navigation Tabs -->
+            <div class="flex justify-center space-x-1 bg-indigo-800 pt-1">
+                <button onclick="nav('upload')" id="nav-upload" class="px-6 py-2.5 text-sm font-medium border-b-2 transition">নতুন ভিডিও</button>
+                <button onclick="nav('list')" id="nav-list" class="px-6 py-2.5 text-sm font-medium border-b-2 transition">ভিডিও তালিকা</button>
+                <button onclick="nav('settings')" id="nav-settings" class="px-6 py-2.5 text-sm font-medium border-b-2 transition"><i class="fas fa-cog mr-1"></i> সেটিংস</button>
+            </div>
+        </nav>
+
+        <main class="flex-grow max-w-6xl mx-auto w-full p-4 sm:p-6">
+            
+            <!-- Upload View -->
+            <div id="view-upload" class="view-panel">
+                <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 max-w-2xl mx-auto">
+                    <h3 class="text-2xl font-extrabold mb-6 text-indigo-700 border-b pb-2"><i class="fas fa-cloud-upload-alt mr-2"></i> ভিডিও আপলোড</h3>
+                    <form id="upload-form" class="space-y-6">
+                        
+                        <!-- Video ID Management Card -->
+                        <div class="p-5 bg-indigo-50 rounded-2xl border border-indigo-200 shadow-inner">
+                            <label class="text-sm font-extrabold text-indigo-800 uppercase flex items-center"><i class="fas fa-fingerprint mr-2"></i> ভিডিও আইডি তৈরির মোড</label>
+                            <div class="mt-4 flex items-center space-x-6">
+                                <label class="flex items-center text-sm font-medium text-gray-700">
+                                    <input type="radio" name="idmode" value="auto" checked onchange="toggleIdInput()" class="mr-2 text-indigo-600 border-gray-300 focus:ring-indigo-500"> স্বয়ংক্রিয় (Sequential)
+                                </label>
+                                <label class="flex items-center text-sm font-medium text-gray-700">
+                                    <input type="radio" name="idmode" value="custom" onchange="toggleIdInput()" class="mr-2 text-indigo-600 border-gray-300 focus:ring-indigo-500"> কাস্টম আইডি
+                                </label>
+                            </div>
+                            <input type="text" id="inp-custom-id" class="mt-4 input-field font-mono hidden" placeholder="e.g. funny_clip_01 (শুধুমাত্র ইংরেজি অক্ষর, সংখ্যা এবং আন্ডারস্কোর)">
+                        </div>
+
+                        <!-- Core Details -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div>
+                                <label class="label-text">ভিডিও টাইটেল</label>
+                                <input type="text" id="inp-title" class="input-field" required>
+                            </div>
+                            <div>
+                                <label class="label-text">ভিডিও URL (Embed iFrame Src)</label>
+                                <input type="url" id="inp-url" class="input-field" placeholder="https://www.youtube.com/embed/..." required>
+                            </div>
+                        </div>
+
+                        <!-- Video Sandboxing Control (NEW UX) -->
+                        <div class="p-5 bg-purple-50 rounded-2xl border border-purple-200 flex items-center justify-between shadow-md">
+                            <label for="inp-sandbox" class="text-sm font-extrabold text-purple-800 flex items-center">
+                                <i class="fas fa-shield-alt mr-2"></i> iFrame Sandbox নিরাপত্তা (সক্রিয়)
+                            </label>
+                            <!-- Custom Switch Implementation -->
+                            <label class="switch">
+                                <input type="checkbox" id="inp-sandbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Media & Ratio Details -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                            <div class="sm:col-span-2">
+                                <label class="label-text">থাম্বনেইল URL</label>
+                                <input type="url" id="inp-thumb" class="input-field" placeholder="https://..." required>
+                            </div>
+                            <!-- Aspect Ratio - Select Dropdown -->
+                            <div class="bg-yellow-50 p-3 rounded-2xl border border-yellow-200">
+                                <label class="label-text text-yellow-700 flex items-center"><i class="fas fa-arrows-alt-h mr-2"></i> অ্যাস্পেক্ট রেশিও</label>
+                                <select id="inp-ratio" class="input-field border-yellow-300 h-12 appearance-none p-1" required>
+                                    <option value="16:9" selected>16:9 (Wide/Desktop)</option>
+                                    <option value="4:3">4:3 (Classic TV)</option>
+                                    <option value="1:1">1:1 (Square/Social)</option>
+                                    <option value="9:16">9:16 (Vertical/Shorts)</option>
+                                    <option value="21:9">21:9 (Cinematic)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Duration & Description -->
+                        <div class="grid grid-cols-2 gap-5">
+                            <div>
+                                <label class="label-text">ভিডিও ডিউরেশন (e.g., 05:30)</label>
+                                <input type="text" id="inp-dur" class="input-field" required>
+                            </div>
+                            <div>
+                                <label class="label-text">অন্যান্য তথ্য (ঐচ্ছিক)</label>
+                                <input type="text" disabled class="input-field bg-gray-100 text-gray-500 cursor-not-allowed" placeholder="ভবিষ্যতের ব্যবহারের জন্য">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="label-text">বর্ণনা</label>
+                            <textarea id="inp-desc" class="input-field" rows="3" placeholder="সংক্ষিপ্ত বর্ণনা লিখুন..."></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-green-500/50 transition transform hover:scale-[1.01] flex items-center justify-center">
+                            <i class="fas fa-upload mr-2"></i> ভিডিও প্রকাশ করুন
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- List View -->
+            <div id="view-list" class="view-panel hidden">
+                <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-indigo-50">
+                            <tr>
+                                <th class="px-4 py-4 text-left text-xs font-bold text-indigo-700 uppercase tracking-wider">ভিডিও</th>
+                                <th class="px-4 py-4 text-left text-xs font-bold text-indigo-700 uppercase tracking-wider video-stats-col">পরিসংখ্যান</th>
+                                <!-- Action column removed -->
+                            </tr>
+                        </thead>
+                        <tbody id="video-list-body" class="bg-white divide-y divide-gray-100">
+                            <tr><td colspan="2" class="p-6 text-center text-gray-400 font-medium">লোড হচ্ছে...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Settings View -->
+            <div id="view-settings" class="view-panel hidden">
+                <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 max-w-2xl mx-auto">
+                    <h3 class="text-2xl font-extrabold mb-6 text-indigo-700 border-b pb-2"><i class="fas fa-tools mr-2"></i> অ্যাপ সেটিংস</h3>
+                    <form id="settings-form" class="space-y-6">
+                        
+                        <div class="space-y-5 border-b pb-6">
+                            <h4 class="text-xl font-bold text-indigo-700 border-l-4 border-indigo-500 pl-3">ব্র্যান্ডিং সেটিংস</h4>
+                            <!-- App Name -->
+                            <div class="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                <label class="label-text flex items-center text-gray-700"><i class="fas fa-tag mr-2"></i> অ্যাপের নাম</label>
+                                <input type="text" id="set-name" class="input-field" value="StreamHub" required>
+                            </div>
+                            
+                            <!-- Logo URL -->
+                            <div class="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                <label class="label-text flex items-center text-gray-700"><i class="fas fa-image mr-2"></i> লোগো ইমেজ URL (ঐচ্ছিক)</label>
+                                <input type="url" id="set-logo" class="input-field" placeholder="https://example.com/logo.png">
+                                <p class="text-xs text-indigo-500 mt-2 flex items-center"><i class="fas fa-info-circle mr-1"></i> লোগো URL সেট করা থাকলে এবং টগল অন থাকলে নাম অটোমেটিক হাইড হয়ে যাবে।</p>
+                            </div>
+
+                            <!-- Display Toggle -->
+                            <div class="flex items-center justify-between p-4 bg-indigo-100 rounded-xl border border-indigo-300 shadow-inner">
+                                <label for="set-show-logo" class="text-sm font-extrabold text-indigo-800 flex items-center">
+                                    <i class="fas fa-eye mr-2"></i> লোগো/নাম ডিসপ্লে টগল
+                                </label>
+                                <input type="checkbox" id="set-show-logo" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            </div>
+                        </div>
+
+                        <!-- Splash Screen Settings -->
+                        <div class="space-y-5">
+                            <h4 class="text-xl font-bold text-indigo-700 border-l-4 border-indigo-500 pl-3">স্প্ল্যাশ স্ক্রিন সেটিংস</h4>
+                            
+                            <!-- Splash Icon URL -->
+                            <div class="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                                <label class="label-text flex items-center text-blue-700"><i class="fas fa-play-circle mr-2"></i> স্প্ল্যাশ স্ক্রিন আইকন URL</label>
+                                <input type="url" id="set-splash-icon" class="input-field border-blue-300" placeholder="https://example.com/splash-icon.png">
+                                <p class="text-xs text-blue-500 mt-2 flex items-center"><i class="fas fa-info-circle mr-1"></i> এই আইকনটি স্প্ল্যাশ স্ক্রিনে দেখানো হবে।</p>
+                            </div>
+
+                            <!-- Admin Splash Icon URL -->
+                            <div class="p-4 bg-purple-50 rounded-xl border border-purple-200">
+                                <label class="label-text flex items-center text-purple-700"><i class="fas fa-user-shield mr-2"></i> অ্যাডমিন স্প্ল্যাশ আইকন URL (ঐচ্ছিক)</label>
+                                <input type="url" id="set-admin-splash-icon" class="input-field border-purple-300" placeholder="https://example.com/admin-splash-icon.png">
+                                <p class="text-xs text-purple-500 mt-2 flex items-center"><i class="fas fa-info-circle mr-1"></i> অ্যাডমিন প্যানেলের জন্য আলাদা স্প্ল্যাশ আইকন।</p>
+                            </div>
+                        </div>
+
+                        <!-- Placeholder URL Setting -->
+                        <div class="space-y-5">
+                            <h4 class="text-xl font-bold text-indigo-700 border-l-4 border-indigo-500 pl-3">ভিডিও ডেটা সেটিংস</h4>
+                            <div class="p-4 bg-red-50 rounded-xl border border-red-200">
+                                <label class="label-text flex items-center text-red-700"><i class="fas fa-camera-retro mr-2"></i> থাম্বনেইল প্লেসহোল্ডার URL</label>
+                                <input type="url" id="set-placeholder-url" class="input-field border-red-300" placeholder="https://placehold.co/100x60/f0f0f0/333333?text=N/A">
+                                <p class="text-xs text-red-500 mt-2">এই URL টি ব্যবহার করা হবে যখন আসল থাম্বনেইল লোড হতে ব্যর্থ হবে।</p>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/50 transition transform hover:scale-[1.01] flex items-center justify-center">
+                            <i class="fas fa-save mr-2"></i> সেটিংস সংরক্ষণ করুন
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+        </main>
+    </div>
+
+    <!-- Edit Modal - Improved UX -->
+    <div id="edit-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 modal backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-3xl w-full max-w-lg mx-4 p-6 relative transform transition-all scale-100 modal-content-scrollable"> 
+            <button onclick="closeEditModal()" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition"><i class="fas fa-times text-xl"></i></button>
+            <h3 class="text-2xl font-extrabold mb-5 text-indigo-700 border-b pb-2"><i class="fas fa-edit mr-2"></i> ভিডিও এডিট করুন</h3>
+            
+            <form id="edit-form" class="space-y-4">
+                <input type="hidden" id="edit-original-id">
+
+                <!-- ID Warning -->
+                <div class="bg-red-50 border border-red-300 text-red-700 p-3 rounded-lg text-sm font-medium flex items-start shadow-inner">
+                    <i class="fas fa-exclamation-triangle mr-3 mt-1 text-lg flex-shrink-0"></i> 
+                    <div>
+                        <span class="font-bold">গুরুত্বপূর্ণ সতর্কতা:</span> ভিডিও আইডি পরিবর্তন করলে <span class="text-red-800">আগের সমস্ত ভিউ ও লাইক ডেটা ডিসকানেক্ট হয়ে যাবে</span>।
+                    </div>
+                </div>
+
+                <div>
+                    <label class="label-text">ভিডিও আইডি (সাবধানে পরিবর্তন করুন)</label>
+                    <input type="text" id="edit-id" class="input-field h-12 font-mono border-red-400" required>
+                </div>
+                <div>
+                    <label class="label-text">টাইটেল</label>
+                    <input type="text" id="edit-title" class="input-field h-12" required>
+                </div>
+                <div>
+                    <label class="label-text">বর্ণনা</label>
+                    <textarea id="edit-desc" class="input-field" rows="2" placeholder="সংক্ষিপ্ত বর্ণনা লিখুন..."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label-text">ভিডিও URL (iFrame Src)</label>
+                        <input type="url" id="edit-url" class="input-field h-12" required>
+                    </div>
+                    <div>
+                        <label class="label-text">থাম্বনেইল URL</label>
+                        <input type="url" id="edit-thumb" class="input-field h-12" required>
+                    </div>
+                </div>
+                
+                <!-- NEW UX: Sandboxing Control in Edit Modal -->
+                <div class="p-3 bg-purple-50 rounded-xl border border-purple-200 flex items-center justify-between shadow-inner">
+                    <label for="edit-sandbox" class="text-sm font-bold text-purple-700 flex items-center"><i class="fas fa-shield-alt mr-2"></i> iFrame Sandbox নিরাপত্তা (সক্রিয়)</label>
+                    <!-- Custom Switch Implementation -->
+                    <label class="switch">
+                        <input type="checkbox" id="edit-sandbox">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label-text">ডিউরেশন (e.g., 05:30)</label>
+                        <input type="text" id="edit-dur" class="input-field h-12" required>
+                    </div>
+                    <!-- Aspect Ratio - Select Dropdown in Edit Modal -->
+                    <div>
+                        <label class="label-text flex items-center text-yellow-700"><i class="fas fa-expand-alt mr-1"></i> Aspect Ratio (W:H)</label>
+                        <select id="edit-ratio" class="input-field h-12 border-yellow-400 appearance-none p-1" required>
+                            <option value="16:9">16:9 (Wide/Desktop)</option>
+                            <option value="4:3">4:3 (Classic TV)</option>
+                            <option value="1:1">1:1 (Square/Social)</option>
+                            <option value="9:16">9:16 (Vertical/Shorts)</option>
+                            <option value="21:9">21:9 (Cinematic)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons: Update and Delete -->
+                <div class="space-y-3 pt-4">
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-500/50 transition transform hover:scale-[1.01] flex items-center justify-center">
+                        <i class="fas fa-sync-alt mr-2"></i> আপডেট করুন
+                    </button>
+                    <!-- DELETE BUTTON -->
+                    <button type="button" onclick="openDeleteConfirmModal()" class="w-full bg-red-600 text-white py-3 rounded-xl hover:bg-red-700 font-bold shadow-lg shadow-red-500/50 transition flex items-center justify-center">
+                        <i class="fas fa-trash-alt mr-2"></i> ভিডিও ডিলিট করুন
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 modal backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-3xl w-full max-w-sm mx-4 p-6 relative transform transition-all scale-100">
+            <h3 class="text-xl font-extrabold mb-4 text-red-600 flex items-center"><i class="fas fa-exclamation-circle mr-2"></i> নিশ্চিত করুন</h3>
+            <p class="text-gray-700 mb-6">আপনি কি সত্যিই <span id="confirm-delete-id" class="font-bold text-red-600 font-mono"></span> আইডি সহ ভিডিওটি ডিলিট করতে চান? এই অ্যাকশনটি বাতিল করা যাবে না।</p>
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeDeleteConfirmModal()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 font-medium transition">বাতিল করুন</button>
+                <button onclick="deleteVideo()" id="confirm-delete-btn" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-bold transition shadow-md">হ্যাঁ, ডিলিট করুন</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase SDKs updated to 11.6.1
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // Auth imports updated: ONLY signInWithEmailAndPassword, onAuthStateChanged, and signOut are imported.
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, query, orderBy, Timestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL CONFIGURATION (MANDATORY) ---
+        // Manually provided Firebase Configuration
+        const hardcodedFirebaseConfig = {
+            apiKey: "AIzaSyAf4rQug_sxHD0TdNtM0wrQ_A0dUVz173A",
+            authDomain: "nafisa-akter.firebaseapp.com",
+            databaseURL: "https://nafisa-akter-default-rtdb.firebaseio.com",
+            projectId: "nafisa-akter",
+            storageBucket: "nafisa-akter.firebasestorage.app",
+            messagingSenderId: "899637197388",
+            appId: "1:899637197388:web:434a9805735ff78d7b12e9"
+        };
+
+        // Accessing Canvas environment global variables, but prioritizing hardcoded config.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const canvasFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        
+        // Use hardcoded config, fall back to canvas config if hardcoded is empty (though it isn't here)
+        const firebaseConfig = Object.keys(hardcodedFirebaseConfig).length > 0 ? hardcodedFirebaseConfig : canvasFirebaseConfig;
+
+        // Check if config is available before initialization
+        if (Object.keys(firebaseConfig).length === 0) {
+            console.error("Firebase config is missing or invalid.");
+        }
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // --- DOM ELEMENTS & STATE ---
+        const els = {
+            splash: document.getElementById('splash-screen'),
+            auth: document.getElementById('auth-screen'),
+            dash: document.getElementById('dashboard'),
+            loginForm: document.getElementById('login-form'),
+            authErr: document.getElementById('auth-error'),
+            appNameTextNav: document.getElementById('app-name-text-nav'),
+            appLogoImageNav: document.getElementById('app-logo-image-nav'),
+            editModal: document.getElementById('edit-modal'),
+            deleteConfirmModal: document.getElementById('delete-confirm-modal'),
+            confirmDeleteIdSpan: document.getElementById('confirm-delete-id'),
+            inpRatio: document.getElementById('inp-ratio'),
+            editRatio: document.getElementById('edit-ratio'),
+            setPlaceholderUrl: document.getElementById('set-placeholder-url'),
+            // NEW: Sandbox checkboxes
+            inpSandbox: document.getElementById('inp-sandbox'),
+            editSandbox: document.getElementById('edit-sandbox'),
+            // NEW: Splash elements
+            splashIcon: document.getElementById('splash-icon'),
+            splashAppName: document.getElementById('splash-app-name'),
+        };
+        let appConfig = {};
+        
+        // --- CUSTOM NOTIFICATION HANDLER (Replaces alert() and confirm()) ---
+        window.notify = (message, type = 'success') => {
+            const bar = document.getElementById('notification-bar');
+            bar.innerText = message;
+            bar.classList.remove('bg-green-600', 'bg-red-600', 'translate-y-[-100%]', 'opacity-0');
+            
+            if (type === 'success') {
+                bar.classList.add('bg-green-600');
+            } else if (type === 'error') {
+                bar.classList.add('bg-red-600');
+            }
+
+            bar.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                bar.classList.remove('translate-y-0', 'opacity-100');
+                bar.classList.add('translate-y-[-100%]', 'opacity-0');
+            }, 4000);
+        };
+
+        // --- Hide Splash Screen ---
+        function hideSplash() {
+            els.splash.style.opacity = '0';
+            setTimeout(() => {
+                els.splash.style.display = 'none';
+            }, 500);
+        }
+
+        // --- Show Splash Screen ---
+        function showSplash() {
+            els.splash.style.display = 'flex';
+            els.splash.style.opacity = '1';
+        }
+
+        // --- Update Splash Screen ---
+        function updateSplashScreen() {
+            // Set app name
+            const appName = appConfig.app_name || 'StreamHub';
+            els.splashAppName.textContent = appName;
+            
+            // Set splash icon - Use admin splash icon if available, otherwise use regular splash icon
+            const adminSplashIcon = appConfig.admin_splash_icon || '';
+            const regularSplashIcon = appConfig.splash_icon || '';
+            const defaultSplashIcon = 'https://cdn-icons-png.flaticon.com/512/2889/2889676.png';
+            
+            if (adminSplashIcon) {
+                els.splashIcon.src = adminSplashIcon;
+                els.splashIcon.onerror = () => {
+                    els.splashIcon.src = regularSplashIcon || defaultSplashIcon;
+                };
+            } else if (regularSplashIcon) {
+                els.splashIcon.src = regularSplashIcon;
+                els.splashIcon.onerror = () => {
+                    els.splashIcon.src = defaultSplashIcon;
+                };
+            } else {
+                els.splashIcon.src = defaultSplashIcon;
+            }
+        }
+
+        // --- Update User Display Name in Navbar ---
+        function updateUserDisplayName(user) {
+            let displayName = user.email; // Default to email
+            
+            // If display name is set (not common with Email/Password but good practice)
+            if (user.displayName) {
+                displayName = user.displayName;
+            } else {
+                // Fallback: Use the part before '@' from the email
+                displayName = user.email.split('@')[0];
+            }
+            els.userDisplayName.innerText = displayName;
+        }
+
+        // --- AUTH STATE LISTENER (Strictly Email/Password Check) ---
+        onAuthStateChanged(auth, async u => {
+            // Only proceed if a user object exists AND that user has an email property (indicating Email/Password login)
+            if(u && u.email) { 
+                // Logged in via Email/Password
+                await loadSettings(); // Load settings first
+                updateSplashScreen(); // Update splash with loaded config
+                
+                setTimeout(() => {
+                    hideSplash();
+                    els.auth.classList.add('hidden'); 
+                    els.dash.classList.remove('hidden'); 
+                    updateUserDisplayName(u); // Update user name
+                    nav('upload', false); // Default to upload view
+                }, 1000); // Show splash for at least 1 second
+                
+            } else {
+                // Not logged in, or logged in anonymously/via other means (which is blocked for admin)
+                await loadSettings(); // Load settings first
+                updateSplashScreen(); // Update splash with loaded config
+                
+                setTimeout(() => {
+                    hideSplash();
+                    els.auth.classList.remove('hidden'); 
+                    els.dash.classList.add('hidden');
+                    // Set a default/empty name in case
+                    els.userDisplayName.innerText = 'ইউজার';
+                }, 1000); // Show splash for at least 1 second
+            }
+        });
+
+        // Initial show splash
+        showSplash();
+        updateSplashScreen(); // Show default splash first
+
+        // --- LOGIN LOGIC (Firebase Email/Password) ---
+        els.loginForm.onsubmit = async (e) => {
+            e.preventDefault();
+            els.authErr.classList.add('hidden');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                showSplash(); // Show splash during login
+                
+                // Firebase Email/Password Sign-in
+                await signInWithEmailAndPassword(auth, email, password);
+                // AuthStateChanged will handle UI update on success
+                document.getElementById('password').value = ''; // Clear password field
+                
+            } catch (err) { 
+                hideSplash(); // Hide splash on error
+                let errorMessage = "লগইন ব্যর্থ হয়েছে। ইমেল বা পাসওয়ার্ড যাচাই করুন।";
+                console.error("Login error:", err);
+
+                // Specific error messages
+                if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+                    // This handles auth/invalid-credential, which means either the email or password is wrong.
+                    errorMessage = "ভুল ইমেল বা পাসওয়ার্ড।";
+                } else if (err.code === 'auth/invalid-email') {
+                    errorMessage = "অবৈধ ইমেল ফরম্যাট।";
+                }
+                
+                els.authErr.innerText = errorMessage; 
+                els.authErr.classList.remove('hidden');
+            }
+        };
+
+        // --- LOGOUT LOGIC (Firebase) ---
+        window.logout = async () => {
+             try {
+                showSplash(); // Show splash during logout
+                await signOut(auth);
+                notify("সফলভাবে লগআউট করা হয়েছে।", 'success');
+             } catch(e) {
+                hideSplash(); // Hide splash on error
+                notify("লগআউটে সমস্যা হয়েছে।", 'error');
+                console.error("Logout error:", e);
+             }
+        };
+
+        // --- NAVIGATION ---
+        window.nav = (view, reload=true) => {
+            document.querySelectorAll('.view-panel').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${view}`).classList.remove('hidden');
+            
+            ['upload','list', 'settings'].forEach(v => {
+                const btn = document.getElementById(`nav-${v}`);
+                if(v === view) { 
+                    btn.classList.add('border-white', 'text-white'); 
+                    btn.classList.remove('border-transparent', 'text-indigo-200'); 
+                }
+                else { 
+                    btn.classList.remove('border-white', 'text-white'); 
+                    btn.classList.add('border-transparent', 'text-indigo-200'); 
+                }
+            });
+            if(view === 'list' && reload) renderList();
+            if(view === 'settings' && reload) loadSettings();
+        };
+
+        window.toggleIdInput = () => {
+            const isCustom = document.querySelector('input[name="idmode"]:checked').value === 'custom';
+            document.getElementById('inp-custom-id').classList.toggle('hidden', !isCustom);
+        };
+
+        // --- SETTINGS LOGIC ---
+        async function loadSettings() {
+            try {
+                const s = await getDoc(doc(db, 'settings', appId)); // Using appId in settings collection for isolation
+                if(s.exists()) {
+                    appConfig = s.data();
+                    document.getElementById('set-name').value = appConfig.app_name || 'StreamHub';
+                    document.getElementById('set-logo').value = appConfig.logo_url || '';
+                    document.getElementById('set-show-logo').checked = appConfig.show_logo === true;
+                    // Load placeholder URL
+                    els.setPlaceholderUrl.value = appConfig.placeholder_url || '';
+                    // NEW: Load splash icon URLs
+                    document.getElementById('set-splash-icon').value = appConfig.splash_icon || '';
+                    document.getElementById('set-admin-splash-icon').value = appConfig.admin_splash_icon || '';
+                } else {
+                    appConfig = { 
+                        app_name: 'StreamHub', 
+                        logo_url: '', 
+                        show_logo: false,
+                        placeholder_url: '',
+                        splash_icon: '',
+                        admin_splash_icon: ''
+                    };
+                }
+                updateBranding();
+            } catch(e) { console.error("Could not load config", e); }
+        }
+
+        function updateBranding() {
+            const appName = appConfig.app_name || 'StreamHub';
+            const logoUrl = appConfig.logo_url || '';
+            const showLogo = appConfig.show_logo === true;
+
+            // 1. Set App Name text content
+            els.appNameTextNav.innerHTML = `<i class="fas fa-cube mr-2"></i>${appName} Admin`;
+
+            // 2. Decide what to display in the header
+            if (showLogo && logoUrl) {
+                els.appLogoImageNav.src = logoUrl;
+                els.appLogoImageNav.classList.remove('hidden');
+                els.appNameTextNav.classList.add('hidden');
+            } else {
+                // Fallback to name
+                els.appNameTextNav.classList.remove('hidden');
+                els.appLogoImageNav.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('settings-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerText;
+            btn.disabled = true; btn.innerText = "সংরক্ষণ হচ্ছে...";
+
+            try {
+                const newConfig = {
+                    app_name: document.getElementById('set-name').value.trim(),
+                    logo_url: document.getElementById('set-logo').value.trim(),
+                    show_logo: document.getElementById('set-show-logo').checked,
+                    // Save placeholder URL
+                    placeholder_url: els.setPlaceholderUrl.value.trim(),
+                    // NEW: Save splash icon URLs
+                    splash_icon: document.getElementById('set-splash-icon').value.trim(),
+                    admin_splash_icon: document.getElementById('set-admin-splash-icon').value.trim()
+                };
+                
+                await setDoc(doc(db, 'settings', appId), newConfig, { merge: true }); // Using appId for document ID
+                appConfig = newConfig; // Update local state
+                updateBranding(); // Update header immediately
+                updateSplashScreen(); // Update splash screen with new config
+                
+                notify("সেটিংস সফলভাবে সংরক্ষণ করা হয়েছে!", 'success');
+
+            } catch (err) { 
+                notify(`সংরক্ষণ ব্যর্থ: ${err.message}`, 'error'); 
+            } finally {
+                btn.disabled = false; btn.innerText = originalText;
+            }
+        };
+
+
+        // --- UPLOAD LOGIC ---
+        document.getElementById('upload-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerText;
+            btn.disabled = true; btn.innerText = "আপলোড হচ্ছে...";
+
+            try {
+                const mode = document.querySelector('input[name="idmode"]:checked').value;
+                let vidId;
+                
+                if (mode === 'custom') {
+                    vidId = document.getElementById('inp-custom-id').value.trim();
+                    if(!vidId) throw new Error("কাস্টম আইডি আবশ্যক।");
+                } else {
+                    vidId = await generateNextId();
+                }
+
+                await setDoc(doc(db, 'videos', vidId), {
+                    video_id: vidId,
+                    title: document.getElementById('inp-title').value,
+                    video_url: document.getElementById('inp-url').value,
+                    thumbnail_url: document.getElementById('inp-thumb').value,
+                    duration: document.getElementById('inp-dur').value,
+                    description: document.getElementById('inp-desc').value,
+                    ratio: els.inpRatio.value, // Get value from select
+                    use_sandbox: els.inpSandbox.checked, // NEW FIELD: Sandbox control
+                    is_published: true,
+                    total_views: 0,
+                    total_reactions: 0,
+                    upload_timestamp: Timestamp.now()
+                });
+
+                notify(`ভিডিও '${vidId}' সফলভাবে আপলোড হয়েছে!`, 'success');
+                e.target.reset();
+                window.toggleIdInput();
+                els.inpRatio.value = '16:9'; // Reset ratio to default
+                els.inpSandbox.checked = true; // Reset sandbox to default (ON)
+            } catch (err) { 
+                notify(`ত্রুটি: ${err.message}`, 'error'); 
+            }
+            finally { btn.disabled = false; btn.innerText = originalText; }
+        };
+
+        // Fixed: Safer ID generation logic
+        async function generateNextId() {
+            const q = query(collection(db, 'videos'));
+            const snap = await getDocs(q);
+            let max = 0;
+            snap.forEach(d => {
+                const match = d.id.match(/^video(\d+)$/);
+                if(match) max = Math.max(max, parseInt(match[1]));
+            });
+            return `video${max + 1}`;
+        }
+
+        // --- LIST & EDIT LOGIC ---
+        async function renderList() {
+            const tbody = document.getElementById('video-list-body');
+            tbody.innerHTML = '<tr><td colspan="2" class="p-6 text-center text-indigo-400 font-medium"><i class="fas fa-spinner fa-spin mr-2"></i> ভিডিও লোড হচ্ছে...</td></tr>';
+            
+            // Define default placeholder to use if setting is empty
+            const defaultPlaceholder = 'https://placehold.co/64x40/e0e0e0/333333?text=N/A';
+            // Use configured URL or fallback to default
+            const currentPlaceholder = appConfig.placeholder_url || defaultPlaceholder; 
+
+            // NOTE: Firestore queries are limited in this environment. Using simple query.
+            const q = query(collection(db, 'videos')); 
+            const snap = await getDocs(q);
+            
+            // Sort client-side to avoid Firestore index errors
+            let videos = [];
+            snap.forEach(d => videos.push(d.data()));
+            videos.sort((a, b) => (b.upload_timestamp?.toMillis() || 0) - (a.upload_timestamp?.toMillis() || 0));
+
+            tbody.innerHTML = '';
+
+            videos.forEach(v => {
+                const uploadDate = v.upload_timestamp ? v.upload_timestamp.toDate().toLocaleDateString('bn-BD') : 'N/A';
+                
+                // NEW: Sandbox Status Indicator
+                const sandboxStatus = v.use_sandbox ? 
+                    '<span class="bg-purple-100 text-purple-700 text-xs font-medium mr-1 px-2 py-0.5 rounded-full"><i class="fas fa-lock"></i> Sandbox ON</span>' : 
+                    '<span class="bg-yellow-100 text-yellow-700 text-xs font-medium mr-1 px-2 py-0.5 rounded-full"><i class="fas fa-unlock"></i> Sandbox OFF</span>';
+                
+                const row = document.createElement('tr');
+                row.className = "hover:bg-indigo-50 transition-colors cursor-pointer";
+                // পুরো row-এ ক্লিক করলে এডিট মোডে যাবে
+                row.onclick = () => openEdit(v);
+                
+                row.innerHTML = `
+                    <td class="px-4 py-3 video-title-col">
+                        <div class="flex items-start">
+                            <!-- Thumbnail with updated onerror to use the configurable placeholder URL -->
+                            <img class="h-10 w-16 object-cover object-center rounded-md shadow mr-3 flex-shrink-0 self-center" 
+                                 src="${v.thumbnail_url}" 
+                                 onerror="this.onerror=null;this.src='${currentPlaceholder}';">
+                            
+                            <!-- Video Title & Metadata -->
+                            <div class="flex-1 min-w-0"> 
+                                <div class="text-sm font-bold text-gray-900 truncate">${v.title}</div> 
+                                <div class="text-xs text-gray-500 flex items-center space-x-2 mt-1 flex-wrap">
+                                    <!-- ভিডিও আইডি সরানো হয়েছে -->
+                                    <span class="text-indigo-600 font-semibold">${v.ratio || '16:9'}</span>
+                                    <span>${v.duration}</span>
+                                </div>
+                                <!-- Upload date added here -->
+                                <div class="text-xs text-gray-400 mt-1 flex items-center">
+                                    <i class="fas fa-clock mr-1"></i> 
+                                    ${uploadDate}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-sm whitespace-nowrap video-stats-col">
+                        <!-- Translated views/likes for better UX -->
+                        
+                        <!-- Row - 1 -->
+                        <div class="text-gray-600 mb-0.5 flex items-center">
+                            <i class="fas fa-eye mr-2 text-indigo-500"></i> 
+                            ${v.total_views || 0} ভিউ
+                        </div>
+
+                        <!-- Row - 2 -->
+                        <div class="text-gray-600 mb-1 flex items-center">
+                            <i class="fas fa-heart mr-2 text-red-500"></i> 
+                            ${v.total_reactions || 0} লাইক
+                        </div>
+
+                        <!-- Row - 3 (sandbox status) -->
+                        <div class="text-xs text-gray-400 mt-1 flex items-center">
+                            ${sandboxStatus}
+                        </div>
+                    </td>
+                    <!-- Action column removed -->
+                `;
+                tbody.appendChild(row);
+            });
+            if (videos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="p-6 text-center text-gray-500 font-medium"><i class="fas fa-folder-open mr-2"></i> কোনো ভিডিও পাওয়া যায়নি।</td></tr>';
+            }
+        }
+
+        window.openEdit = (vid) => {
+            document.getElementById('edit-original-id').value = vid.video_id;
+            document.getElementById('edit-id').value = vid.video_id;
+            document.getElementById('edit-title').value = vid.title;
+            document.getElementById('edit-desc').value = vid.description || '';
+            document.getElementById('edit-url').value = vid.video_url;
+            document.getElementById('edit-thumb').value = vid.thumbnail_url;
+            document.getElementById('edit-dur').value = vid.duration;
+            // Set the select box value from video data
+            els.editRatio.value = vid.ratio || '16:9';
+            // NEW: Load sandbox state
+            els.editSandbox.checked = vid.use_sandbox === true;
+            els.editModal.classList.add('active');
+        };
+
+        window.closeEditModal = () => els.editModal.classList.remove('active');
+        
+        // --- DELETE CONFIRMATION MODAL FUNCTIONS ---
+        window.openDeleteConfirmModal = () => {
+            const videoIdToDelete = document.getElementById('edit-id').value;
+            els.confirmDeleteIdSpan.innerText = videoIdToDelete;
+            els.editModal.classList.remove('active'); // Close edit modal
+            els.deleteConfirmModal.classList.add('active'); // Open confirm modal
+        }
+
+        window.closeDeleteConfirmModal = () => {
+            els.deleteConfirmModal.classList.remove('active');
+            els.editModal.classList.add('active'); // Re-open edit modal
+        }
+
+        window.deleteVideo = async () => {
+            const videoId = document.getElementById('edit-id').value;
+            const btn = document.getElementById('confirm-delete-btn');
+            const originalText = btn.innerText;
+            
+            try {
+                btn.disabled = true; 
+                btn.innerText = "ডিলিট হচ্ছে...";
+                
+                await deleteDoc(doc(db, 'videos', videoId));
+                
+                notify(`ভিডিও '${videoId}' সফলভাবে ডিলিট করা হয়েছে!`, 'success');
+                
+                closeDeleteConfirmModal(); // Close confirm modal
+                
+                renderList(); // Refresh the list
+                
+            } catch (err) {
+                notify(`ডিলিট ব্যর্থ: ${err.message}`, 'error');
+                console.error(err);
+            } finally {
+                btn.disabled = false; 
+                btn.innerText = originalText;
+            }
+        }
+        // --- END DELETE FUNCTIONS ---
+
+        document.getElementById('edit-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const originalId = document.getElementById('edit-original-id').value;
+            const newId = document.getElementById('edit-id').value.trim();
+            const btn = e.target.querySelector('button[type="submit"]'); // Ensure we target the update button
+            const originalText = btn.innerText;
+
+            const updatedData = {
+                video_id: newId,
+                title: document.getElementById('edit-title').value,
+                description: document.getElementById('edit-desc').value,
+                video_url: document.getElementById('edit-url').value,
+                thumbnail_url: document.getElementById('edit-thumb').value,
+                duration: document.getElementById('edit-dur').value,
+                ratio: els.editRatio.value, // Get value from select
+                use_sandbox: els.editSandbox.checked, // NEW FIELD: Sandbox control
+            };
+
+            if (!newId) { notify("ভিডিও আইডি খালি রাখা যাবে না।", 'error'); return; }
+
+            try {
+                btn.disabled = true; btn.innerText = "প্রসেস হচ্ছে...";
+
+                if (originalId !== newId) {
+                    // Preserve views and reactions from the original document
+                    const originalDoc = await getDoc(doc(db, 'videos', originalId));
+                    if(originalDoc.exists()) {
+                        const originalData = originalDoc.data();
+                        updatedData.total_views = originalData.total_views || 0;
+                        updatedData.total_reactions = originalData.total_reactions || 0;
+                        updatedData.upload_timestamp = originalData.upload_timestamp || Timestamp.now();
+                        updatedData.is_published = originalData.is_published || true;
+                        // Preserve existing use_sandbox setting if not explicitly set
+                        updatedData.use_sandbox = originalData.use_sandbox === true;
+                    }
+
+                    // 1. Create new document with new ID and updated data
+                    await setDoc(doc(db, 'videos', newId), updatedData);
+                    
+                    // 2. Delete old document
+                    await deleteDoc(doc(db, 'videos', originalId));
+                    notify(`ভিডিও আইডি সফলভাবে ${originalId} থেকে ${newId} এ পরিবর্তন করা হয়েছে।`, 'success'); // FIXED: alert -> notify
+
+                } else {
+                    // Standard update if ID is unchanged
+                    await updateDoc(doc(db, 'videos', originalId), updatedData);
+                    notify("ভিডিও সফলভাবে আপডেট হয়েছে!", 'success'); // FIXED: alert -> notify
+                }
+                
+                closeEditModal();
+                renderList(); 
+                
+            } catch (err) {
+                notify(`আপডেট/পরিবর্তন ব্যর্থ: ${err.message}`, 'error'); // FIXED: alert -> notify
+                console.error(err);
+            } finally {
+                btn.disabled = false; btn.innerText = originalText;
+            }
+        };
+
+        // The onAuthStateChanged listener handles the initial view load
+    </script>
+</body>
+</html>
